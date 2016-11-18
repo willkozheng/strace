@@ -47,6 +47,10 @@ static struct call_counts *countv[SUPPORTED_PERSONALITIES];
 
 static struct timeval shortest = { 1000000, 0 };
 
+extern unsigned int delay;
+extern struct timeval delay_last_tv;
+extern FILE *shared_log;
+
 void
 count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 {
@@ -100,6 +104,26 @@ count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 	if (tv_cmp(tv, &shortest) < 0)
 		shortest = *tv;
 	tv_add(&cc->time, &cc->time, count_wallclock ? &wtv : tv);
+
+	if (cflag && delay > 0)
+	{
+		if (delay_last_tv.tv_sec == 0 && delay_last_tv.tv_usec == 0)
+		{
+			delay_last_tv = *syscall_exiting_tv;
+		}
+		else if (delay_last_tv.tv_sec + delay <= syscall_exiting_tv->tv_sec)
+		{
+			delay_last_tv = *syscall_exiting_tv;
+
+			char str[sizeof("HH:MM:SS")];
+			time_t local = syscall_exiting_tv->tv_sec;
+			strftime(str, sizeof(str), "%T", localtime(&local));
+			fprintf(shared_log, "------------------------------%s-----------------------------\n", str);
+
+			call_summary(shared_log);
+		}
+		
+	}
 }
 
 static int
@@ -209,6 +233,8 @@ call_summary_pers(FILE *outf)
 				(long) (1000000 * dtv.tv_sec + dtv.tv_usec),
 				cc->calls,
 				error_str, sysent[idx].sys_name);
+
+			memset(cc, 0,  sizeof(struct call_counts));
 		}
 	}
 	free(sorted_count);

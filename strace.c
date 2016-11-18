@@ -90,6 +90,8 @@ unsigned int qflag = 0;
 static unsigned int tflag = 0;
 static bool rflag = 0;
 static bool print_pid_pfx = 0;
+unsigned int delay = 0;
+struct timeval delay_last_tv = {};
 
 /* -I n */
 enum {
@@ -152,7 +154,7 @@ static char *acolumn_spaces;
 
 static char *outfname = NULL;
 /* If -ff, points to stderr. Else, it's our common output log */
-static FILE *shared_log;
+FILE *shared_log;
 
 struct tcb *printing_tcp = NULL;
 static struct tcb *current_tcp;
@@ -226,6 +228,7 @@ Statistics:\n\
   -O overhead    set overhead for tracing syscalls to OVERHEAD usecs\n\
   -S sortby      sort syscall counts by: time, calls, name, nothing (default %s)\n\
   -w             summarise syscall latency (default is system time)\n\
+  -W             The waiting time parameter specifies the amount of time in seconds between each report\n\
 \n\
 Filtering:\n\
   -e expr        a qualifying expression: option=[!]all or option=[!]val1[,val2]...\n\
@@ -1595,7 +1598,7 @@ init(int argc, char *argv[])
 		"k"
 #endif
 		"D"
-		"a:e:o:O:p:s:S:u:E:P:I:")) != EOF) {
+		"a:e:o:O:p:s:S:u:E:P:I:W:")) != EOF) {
 		switch (c) {
 		case 'b':
 			if (strcmp(optarg, "execve") != 0)
@@ -1712,6 +1715,14 @@ init(int argc, char *argv[])
 			opt_intr = string_to_uint(optarg);
 			if (opt_intr <= 0 || opt_intr >= NUM_INTR_OPTS)
 				error_opt_arg(c, optarg);
+			break;
+		case 'W':
+			delay = string_to_uint(optarg);
+
+			if (cflag == CFLAG_NONE)
+			{
+				cflag = CFLAG_ONLY_STATS;
+			}
 			break;
 		default:
 			error_msg_and_help(NULL);
